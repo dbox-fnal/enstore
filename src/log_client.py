@@ -59,6 +59,15 @@ MAX_QUEUE_SIZE = 200000
 # POSTCONDITION : AN ACCURATE (HOPEFULLY) ERROR MESSAGE
 ##############################################################################
 def genMsgType(msg, ln, severity):
+    """generate formatted message for log server
+    args:
+        msg(str): message
+        ln(int): line number
+        severity(int): severity
+        returns:
+            (str): formatted message 
+    """
+    
     #TRUE = 1
     #FALSE = 0
 
