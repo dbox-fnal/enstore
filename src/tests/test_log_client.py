@@ -1,8 +1,9 @@
 import unittest
 import os
-import mock
+import pwd
 import StringIO
 import threading
+import mock
 import e_errors
 import enstore_functions
 import log_client
@@ -13,10 +14,13 @@ import mock_csc
     Author: Dennis Box
     Date: 2023-07-10
 """
+
+
 class TestLoggerClient(unittest.TestCase):
 
     def setUp(self):
         self.sent_msg = mock.MagicMock()
+        self.user = pwd.getpwuid(os.getuid())[0]
         udp_client.UDPClient.send = self.sent_msg
         udp_client.UDPClient.send_no_wait = self.sent_msg
         csc = mock_csc.csc()
@@ -34,12 +38,15 @@ class TestLoggerClient(unittest.TestCase):
         self.log_client.log_func(t, pid, name, args)
         unique_id = True
         p1 = {
-            'message': '9999999 enstore M LOG_CLIENT  6 an log message',
+            'message': '9999999 %s M LOG_CLIENT  6 an log message' % self.user,
             'work': 'log_message'}
         p2 = ('131.225.214.78', 7504)
         self.sent_msg.assert_called_with(p1, p2, unique_id=True)
 
     def test_set_get_logpriority(self):
+        # NB the log server reacts to the log priority
+        # this needs to be tested with the log server running
+        # or in the log server test
         log_prio = 99999
         self.assertNotEqual(self.log_client.get_logpriority(), log_prio)
         self.log_client.set_logpriority(log_prio)
@@ -72,6 +79,7 @@ class TestTCPLoggerClient(unittest.TestCase):
         enstore_functions.get_enstore_tmp_dir.side_effect = tmp_dir_side_effect
         threading.Thread = mock.MagicMock()
         self.sent_msg = mock.MagicMock()
+        self.user = pwd.getpwuid(os.getuid())[0]
         csc = mock_csc.csc()
         self.log_client = log_client.TCPLoggerClient(csc)
 
@@ -90,7 +98,7 @@ class TestTCPLoggerClient(unittest.TestCase):
         self.log_client.message_buffer.put_nowait = self.sent_msg
         self.log_client.log_func(t, pid, name, args)
         p1 = {
-            'message': '9999999 enstore M LOG_CLIENT  6 an log message',
+            'message': '9999999 %s M LOG_CLIENT  6 an log message' % self.user,
             'work': 'log_message',
             'sender': mock.ANY}
         self.sent_msg.assert_called_with(p1)
@@ -115,6 +123,9 @@ class TestTCPLoggerClient(unittest.TestCase):
 
 
 class TestMisc(unittest.TestCase):
+    
+    def setUp(self):
+        self.user = pwd.getpwuid(os.getuid())[0]
 
     def test_genMsgType(self):
         """
@@ -123,7 +134,7 @@ class TestMisc(unittest.TestCase):
 
         the list test_lines was derived from the log_client.py file with the
         following command:
-        grep 'if string.find.*lowLine' ../log_client.py | sed -e 's/^.*Line, //g' -e 's/\(".*"\)\(.*\)/\1/'| sort | tr "\n" ","
+        grep 'if string.find.*lowLine' ../log_client.py | sed -e 's/^.*Line, //g' -e 's/\\(".*"\\)\\(.*\\)/\1/'| sort | tr "\n" ","
         sometimes members in test_lines are repeated, the same input line
         is handled by different if statements
         """
@@ -169,22 +180,22 @@ class TestMisc(unittest.TestCase):
         udp_client.UDPClient.send_no_wait = sent_msg
         os.environ['ENSTORE_CONFIG_PORT'] = '7777'
         os.environ['ENSTORE_CONFIG_HOST'] = '127.0.0.1'
-        with mock.patch('sys.stderr', new=StringIO.StringIO()) as std_err:
+        with mock.patch('sys.stderr', new=StringIO.StringIO()):
             log_client.logthis()
-        formatted_str = "%06d enstore I LOGIT  HELLO" % os.getpid()
+        formatted_str = "%06d %s I LOGIT  HELLO" % (os.getpid(),self.user)
         param_1 = {'message': formatted_str, 'work': 'log_message'}
         sent_msg.assert_called_with(param_1, None, unique_id=True)
 
     def test_parse(self):
         keys = ['time', 'host', 'pid', 'user', 'severity', 'server', 'msg']
         s_keys = ['msg_type', 'msg_dict']
-        linein = "15:30:11 fmv18019.fnal.gov 052082 enstore I TS4500F1MC  FINISHED listDrives returned ('ok', 0, None) Thread MainThread"
+        linein = "15:30:11 fmv18019.fnal.gov 052082 %s I TS4500F1MC  FINISHED listDrives returned ('ok', 0, None) Thread MainThread" % self.user 
         a_dict = log_client.parse(linein)
         for k in keys:
             self.assertTrue(k in a_dict, k)
         for k in s_keys:
             self.assertFalse(k in a_dict, k)
-        linein = "06:10:40 dmsen02.fnal.gov 029136 enstore I EVRLY  MSG_TYPE=EVENT_RELAY  Cleaning up ('131.225.80.65', 44501) from clients"
+        linein = "06:10:40 dmsen02.fnal.gov 029136 %s I EVRLY  MSG_TYPE=EVENT_RELAY  Cleaning up ('131.225.80.65', 44501) from clients" % self.user 
         a_dict = log_client.parse(linein)
         for k in keys:
             self.assertTrue(k in a_dict, k)
