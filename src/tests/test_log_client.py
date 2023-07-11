@@ -196,7 +196,7 @@ class TestLoggerClientInterface(unittest.TestCase):
         self.assertEqual(4, len(self.lci.valid_dictionaries()))
 
     def test_do_work(self):
-        with mock.patch('sys.stderr', new=StringIO.StringIO()) as std_err:
+        with mock.patch('sys.stderr', new=StringIO.StringIO()):
             with mock.patch('sys.stdout', new=StringIO.StringIO()) as std_out:
                 with mock.patch("sys.exit") as exit_mock:
                     with mock.patch('generic_client.GenericClient.check_ticket'):
